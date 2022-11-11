@@ -5,7 +5,9 @@ import getopt
 from dotenv import load_dotenv
 from pathlib import Path
 import os
-
+import os.path
+from os import path
+import uuid
 
 def main(argv):
     dotenv_path = Path('./config.env')
@@ -14,12 +16,14 @@ def main(argv):
     PEXELS_API_KEY = os.getenv('PEXELS_API_KEY')
 
     arg_category = ""
+    # max 80
     arg_num_per_page = ""
-    arg_help = "{0} -c <category> -npp <num_per_page>".format(argv[0])
+    arg_page= ""
+    arg_help = "{0} -c <category> -n <num_per_page> -p <page>".format(argv[0])
 
     try:
-        opts, args = getopt.getopt(argv[1:], "hc:npp:", ["help", "category=",
-                                                         "num_per_page="])
+        opts, args = getopt.getopt(argv[1:], "hc:n:p:", ["help", "category=",
+                                                         "num_per_page=", "page="])
     except:
         print(arg_help)
         sys.exit(2)
@@ -30,27 +34,41 @@ def main(argv):
             sys.exit(2)
         elif opt in ("-c", "--category"):
             arg_category = arg
-        elif opt in ("-npp", "--num_per_page"):
+        elif opt in ("-n", "--num_per_page"):
             arg_num_per_page = arg
+        elif opt in ("-p", "--page"):
+            arg_page = arg
 
     headers = {
         'Authorization': PEXELS_API_KEY
     }
+    
+    url = f'https://api.pexels.com/videos/search?query={arg_category}&per_page={arg_num_per_page}&page={arg_page}'
+    print(url)
     response = requests.get(
-        f'https://api.pexels.com/videos/search?query={arg_category}&per_page={arg_num_per_page}', headers=headers)
+       url, headers=headers)
 
-    # get hd quality of video
+    print(f'Total Results {response.json()["total_results"]}')
+
     quality = {
         "width": [1920, 1280, 3840],
         "height": [1080, 720, 2160]
     }
-
+    
+    # Create directory for videos
+    parent_path = Path().absolute()
+    path_with_category = f'{parent_path}/{arg_category}'
+    
+    if not path.exists(path_with_category):
+        os.mkdir(path_with_category)
+    
     for index, video_obj in enumerate(response.json()['videos']):
         link = get_video_url_by_quality_from_video_object(
             video_obj, quality)
 
         if link:
-            urllib.request.urlretrieve(link, f'./videos/{index}.mp4')
+            urllib.request.urlretrieve(link, f'{path_with_category}/{str(uuid.uuid4())}.mp4')
+    print('Done!')
 
 
 def get_video_url_by_quality_from_video_object(video_obj, quality):
